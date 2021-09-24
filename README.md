@@ -1,6 +1,8 @@
-# cadesplugin-crypto-pro-api
+# cadesplugin-cryptopro-api
 
 Библиотека предоставляет API для работы c cadesplugin и Крипто Про
+
+Форк библиотеки [cadesplugin-crypto-pro-api](https://github.com/smodean/cadesplugin-crypto-pro-api)
 
 ## Install
 
@@ -109,4 +111,4 @@ async function doFriendlyCustomCertsList() {
 
 ### License
 
-MIT © [Denis Smorodin](https://github.com/smodean)
+MIT
