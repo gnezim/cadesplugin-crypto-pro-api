@@ -14,24 +14,24 @@ npm i cadesplugin-crypto-pro-api
 
 Выводит информацию о верисии плагина и так далее
 
-### getCertsList()
+### getCertsList(fromContainer=true)
 
-Получает массив валидных сертификатов
+Получает массив валидных сертификатов. По умолчанию берет сертификаты с носителей ЭП, если значение флага **false**, то берет из локального хранилища пользователя.
 
-### currentCadesCert(thumbprint)
+### currentCadesCert(thumbprint, fromContainer = true)
 
 Получает сертификат по thumbprint значению сертификата
 
-### getCert(thumbprint)
+### getCert(thumbprint, fromContainer = true)
 
 Получает сертификат по thumbprint значению сертификата.
 С помощью этой функции в сертификате доступны методы для парсинга информации о сертификате
 
-### signBase64(thumbprint, base64, type)
+### signBase64(thumbprint, base64, type, fromContainer = true)
 
 Подписать строку в формате base64
 
-### signXml(thumbprint, xml, cadescomXmlSignatureType)
+### signXml(thumbprint, xml, cadescomXmlSignatureType, fromContainer = true)
 
 Подписать строку в формате XML
 
@@ -70,11 +70,12 @@ import ccpa from 'cadesplugin-crypto-pro-api';
 /**
  * @async
  * @function doCertsList
+ * @param {Boolean} fromContainer флаг, определяющий источник сертификата. По умолчанию - с носителя
  * @description формирует массив сертификатов с оригинальными значениями
  */
-async function doCertsList() {
+async function doCertsList(fromContainer = true) {
   const certsApi = await ccpa;
-  const certsList = await certsApi.getCertsList();
+  const certsList = await certsApi.getCertsList(fromContainer);
 
   return certsList;
 }
@@ -82,11 +83,12 @@ async function doCertsList() {
 /**
  * @async
  * @function doFriendlyCustomCertsList
+ * @param {Boolean} fromContainer флаг, определяющий источник сертификата. По умолчанию - с носителя
  * @description формирует массив сертификатов с кастомными полями
  */
-async function doFriendlyCustomCertsList() {
+async function doFriendlyCustomCertsList(fromContainer = true) {
   const certsApi = await ccpa;
-  const certsList = await certsApi.getCertsList();
+  const certsList = await certsApi.getCertsList(fromContainer);
 
   const friendlyCertsList = certsList.map(cert => {
     const friendlySubjectInfo = cert.friendlySubjectInfo();

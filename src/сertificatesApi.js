@@ -17,7 +17,7 @@ const {
     CAPICOM_AUTHENTICATED_ATTRIBUTE_SIGNING_TIME,
     CAPICOM_CERTIFICATE_INCLUDE_END_ENTITY_ONLY,
   },
-  CADESCOM: { CADESCOM_BASE64_TO_BINARY, CADESCOM_CADES_BES, CADESCOM_XML_SIGNATURE_TYPE_ENVELOPED },
+  CADESCOM: { CADESCOM_CONTAINER_STORE, CADESCOM_BASE64_TO_BINARY, CADESCOM_CADES_BES, CADESCOM_XML_SIGNATURE_TYPE_ENVELOPED },
 } = require('./constants');
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -40,13 +40,17 @@ async function about() {
 /**
  * @async
  * @function getCertsList
+ * @param {Boolean} fromContainer флаг, определяющий источник сертификата. По умолчанию - с носителя
  * @throws {Error}
  * @description получает массив валидных сертификатов
  */
-async function getCertsList() {
+async function getCertsList(fromContainer = true) {
   try {
     const oStore = await cadescomMethods.oStore();
-    await oStore.Open(CAPICOM_CURRENT_USER_STORE, CAPICOM_MY_STORE, CAPICOM_STORE_OPEN_MAXIMUM_ALLOWED);
+    if (fromContainer)
+      await oStore.Open(CADESCOM_CONTAINER_STORE);
+    else
+      await oStore.Open(CAPICOM_CURRENT_USER_STORE, CAPICOM_MY_STORE, CAPICOM_STORE_OPEN_MAXIMUM_ALLOWED);
 
     const certificates = await oStore.Certificates;
 
@@ -115,10 +119,11 @@ async function getCertsList() {
  * @async
  * @function currentCadesCert
  * @param {String} thumbprint значение сертификата
+ * @param {Boolean} fromContainer флаг, определяющий источник сертификата. По умолчанию - с носителя
  * @throws {Error}
  * @description получает сертификат по thumbprint значению сертификата
  */
-async function currentCadesCert(thumbprint) {
+async function currentCadesCert(thumbprint, fromContainer = true) {
   try {
     if (!thumbprint) {
       throw new Error('Не указано thumbprint значение сертификата');
@@ -127,7 +132,10 @@ async function currentCadesCert(thumbprint) {
     }
     const oStore = await cadescomMethods.oStore();
 
-    await oStore.Open(CAPICOM_CURRENT_USER_STORE, CAPICOM_MY_STORE, CAPICOM_STORE_OPEN_MAXIMUM_ALLOWED);
+    if (fromContainer)
+      await oStore.Open(CADESCOM_CONTAINER_STORE);
+    else
+      await oStore.Open(CAPICOM_CURRENT_USER_STORE, CAPICOM_MY_STORE, CAPICOM_STORE_OPEN_MAXIMUM_ALLOWED);
 
     const certificates = await oStore.Certificates;
     const count = await certificates.Count;
@@ -149,13 +157,14 @@ async function currentCadesCert(thumbprint) {
  * @async
  * @function getCert
  * @param {String} thumbprint значение сертификата
+ * @param {Boolean} fromContainer флаг, определяющий источник сертификата. По умолчанию - с носителя
  * @throws {Error}
  * @description
  * Получает сертификат по thumbprint значению сертификата.
  * В отличие от currentCadesCert использует для поиска коллбек функцию getCertsList
  * С помощью этой функции в сертификате доступны методы из сertificateAdjuster
  */
-async function getCert(thumbprint) {
+async function getCert(thumbprint, fromContainer = true) {
   try {
     if (!thumbprint) {
       throw new Error('Не указано thumbprint значение сертификата');
@@ -163,7 +172,7 @@ async function getCert(thumbprint) {
       throw new Error('Не валидное значение thumbprint сертификата');
     }
 
-    const certList = await getCertsList();
+    const certList = await getCertsList(fromContainer);
 
     for (let index = 0; index < certList.length; index++) {
       if (thumbprint === certList[index].thumbprint) {
@@ -183,10 +192,11 @@ async function getCert(thumbprint) {
  * @param {String} thumbprint значение сертификата
  * @param {String} base64 строка в формате base64
  * @param {Boolean} type тип подписи true=откреплённая false=прикреплённая
+ * @param {Boolean} fromContainer флаг, определяющий источник сертификата. По умолчанию - с носителя
  * @throws {Error}
  * @description подпись строки в формате base64
  */
-async function signBase64(thumbprint, base64, type = true) {
+async function signBase64(thumbprint, base64, type = true, fromContainer = true) {
   try {
     if (!thumbprint) {
       throw new Error('Не указано thumbprint значение сертификата');
@@ -197,7 +207,7 @@ async function signBase64(thumbprint, base64, type = true) {
     const oAttrs = await cadescomMethods.oAtts();
     const oSignedData = await cadescomMethods.oSignedData();
     const oSigner = await cadescomMethods.oSigner();
-    const currentCert = await currentCadesCert(thumbprint);
+    const currentCert = await currentCadesCert(thumbprint, fromContainer);
     const authenticatedAttributes2 = await oSigner.AuthenticatedAttributes2;
 
     await oAttrs.propset_Name(CAPICOM_AUTHENTICATED_ATTRIBUTE_SIGNING_TIME);
@@ -216,39 +226,17 @@ async function signBase64(thumbprint, base64, type = true) {
 
 /**
  * @async
- * @function verifyBase64
- * @param {String} signedMessage подпись
- * @param {String} base64 строка в формате base64
- * @throws {Error}
- * @description проверка подписи строки в формате base64
- * @returns {Boolean} true если проверка успешна
- */
-async function verifyBase64(signedMessage, base64, type = true) {
-  try {
-    const oSignedData = await cadescomMethods.oSignedData();
-
-    await oSignedData.propset_ContentEncoding(CADESCOM_BASE64_TO_BINARY);
-    await oSignedData.propset_Content(base64);
-    await oSignedData.VerifyCades(signedMessage, CADESCOM_CADES_BES, type);
-
-    return true;
-  } catch (error) {
-    throw new Error(error.message);
-  }
-}
-
-/**
- * @async
  * @function signXml
  * @param {String} thumbprint значение сертификата
  * @param {String} xml строка в формате XML
  * @param {Number} CADESCOM_XML_SIGNATURE_TYPE тип подписи 0=Вложенная 1=Оборачивающая 2=по шаблону @default 0
+ * @param {Boolean} fromContainer флаг, определяющий источник сертификата. По умолчанию - с носителя
  * @throws {Error}
  * @description подписание XML документа
  */
-async function signXml(thumbprint, xml, cadescomXmlSignatureType = CADESCOM_XML_SIGNATURE_TYPE_ENVELOPED) {
+async function signXml(thumbprint, xml, cadescomXmlSignatureType = CADESCOM_XML_SIGNATURE_TYPE_ENVELOPED, fromContainer = true) {
   try {
-    const currentCert = await currentCadesCert(thumbprint);
+    const currentCert = await currentCadesCert(thumbprint, fromContainer);
     const publicKey = await currentCert.PublicKey();
     const algorithm = await publicKey.Algorithm;
     const value = await algorithm.Value;
@@ -281,5 +269,4 @@ module.exports = {
   getCert,
   signXml,
   signBase64,
-  verifyBase64,
 };
