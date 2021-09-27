@@ -1,5 +1,5 @@
 {
-  "name": "cadesplugin-cryptopro-api",
+  "name": "cadesplugin-crypto-api",
   "version": "0.9.7",
   "description": "Библиотека предоставляет API для работы c cadesplugin и Крипто Про",
   "main": "index.js",
@@ -21,7 +21,8 @@
     "Электонная подпись",
     "Электронная цифровая подпись",
     "cadesplugin-crypto-pro-api",
-    "cadesplugin-cryptopro-api"
+    "cadesplugin-cryptopro-api",
+    "cadesplugin-crypto-api"
   ],
   "repository": {
     "type": "git",
