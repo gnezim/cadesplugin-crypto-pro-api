@@ -1,6 +1,6 @@
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // NOTE Imports
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const CertificateAdjuster = require('./сertificateAdjuster');
 const cadescomMethods = require('./cadescomMethods');
@@ -17,40 +17,45 @@ const {
     CAPICOM_AUTHENTICATED_ATTRIBUTE_SIGNING_TIME,
     CAPICOM_CERTIFICATE_INCLUDE_END_ENTITY_ONLY,
   },
-  CADESCOM: { CADESCOM_CONTAINER_STORE, CADESCOM_BASE64_TO_BINARY, CADESCOM_CADES_BES, CADESCOM_XML_SIGNATURE_TYPE_ENVELOPED },
+  CADESCOM: { CADESCOM_BASE64_TO_BINARY, CADESCOM_CADES_BES, CADESCOM_XML_SIGNATURE_TYPE_ENVELOPED },
 } = require('./constants');
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// NOTE Functions
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// NOTE Object create
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @description объект предоставляет методы для получения данных о сертификатах, а так же для их подписания
+ */
+const CertificatesApi = Object.create(null);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// NOTE Methods
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
  * @async
- * @function about
+ * @method about
  * @description выводит информацию
  */
-async function about() {
+CertificatesApi.about = async function about() {
   try {
     return await cadescomMethods.oAbout();
   } catch (error) {
     throw new Error(error.message);
   }
-}
+};
 
 /**
  * @async
- * @function getCertsList
- * @param {Boolean} fromContainer флаг, определяющий источник сертификата. По умолчанию - с носителя
+ * @method getCertsList
  * @throws {Error}
  * @description получает массив валидных сертификатов
  */
-async function getCertsList(fromContainer = true) {
+CertificatesApi.getCertsList = async function getCertsList() {
   try {
     const oStore = await cadescomMethods.oStore();
-    if (fromContainer)
-      await oStore.Open(CADESCOM_CONTAINER_STORE);
-    else
-      await oStore.Open(CAPICOM_CURRENT_USER_STORE, CAPICOM_MY_STORE, CAPICOM_STORE_OPEN_MAXIMUM_ALLOWED);
+    await oStore.Open(CAPICOM_CURRENT_USER_STORE, CAPICOM_MY_STORE, CAPICOM_STORE_OPEN_MAXIMUM_ALLOWED);
 
     const certificates = await oStore.Certificates;
 
@@ -61,7 +66,7 @@ async function getCertsList(fromContainer = true) {
     const findCertificate = await certificates.Find(CAPICOM_CERTIFICATE_FIND_TIME_VALID);
     const findCertsWithPrivateKey = await findCertificate.Find(
       CAPICOM_CERTIFICATE_FIND_EXTENDED_PROPERTY,
-      CAPICOM_PROPID_KEY_PROV_INFO
+      CAPICOM_PROPID_KEY_PROV_INFO,
     );
 
     const count = await findCertsWithPrivateKey.Count;
@@ -70,42 +75,27 @@ async function getCertsList(fromContainer = true) {
       throw new Error('Нет сертификатов с приватным ключём');
     }
 
-    const countArray = Array(count).fill(null);
+    const createCertList = [];
 
-    const createCertList = await Promise.all(
-      /**
-       * @async
-       * @function
-       * @prop {Null} _ неиспользуемая величина
-       * @prop {Number} index
-       * Порядок элемента в массиве.
-       * В функции используется index + 1, так как в cadesplugin счёт элементов ведётся с 1, а в итераторе с 0
-       * @description итерируемая асинхронная функция, возвращающая массив из промисов
-       */
-      countArray.map(async (_, index) => {
-        try {
-          const certApi = await findCertsWithPrivateKey.Item(index + 1);
+    for (let index = 0; index < count; index++) {
+      const certApi = await findCertsWithPrivateKey.Item(index + 1);
+      const сertificateAdjuster = Object.create(CertificateAdjuster);
 
-          const сertificateAdjuster = Object.create(CertificateAdjuster);
-          сertificateAdjuster.init({
-            certApi,
-            issuerInfo: await certApi.IssuerName,
-            privateKey: await certApi.PrivateKey,
-            serialNumber: await certApi.SerialNumber,
-            subjectInfo: await certApi.SubjectName,
-            thumbprint: await certApi.Thumbprint,
-            validPeriod: {
-              from: await certApi.ValidFromDate,
-              to: await certApi.ValidToDate,
-            },
-          });
+      сertificateAdjuster.init({
+        certApi,
+        issuerInfo: await certApi.IssuerName,
+        privateKey: await certApi.PrivateKey,
+        serialNumber: await certApi.SerialNumber,
+        subjectInfo: await certApi.SubjectName,
+        thumbprint: await certApi.Thumbprint,
+        validPeriod: {
+          from: await certApi.ValidFromDate,
+          to: await certApi.ValidToDate,
+        },
+      });
 
-          return сertificateAdjuster;
-        } catch (error) {
-          throw new Error(`При переборе сертификатов произошла ошибка: ${error.message}`);
-        }
-      })
-    );
+      createCertList.push(сertificateAdjuster);
+    }
 
     oStore.Close();
 
@@ -113,17 +103,16 @@ async function getCertsList(fromContainer = true) {
   } catch (error) {
     throw new Error(error.message);
   }
-}
+};
 
 /**
  * @async
- * @function currentCadesCert
+ * @method currentCadesCert
  * @param {String} thumbprint значение сертификата
- * @param {Boolean} fromContainer флаг, определяющий источник сертификата. По умолчанию - с носителя
  * @throws {Error}
  * @description получает сертификат по thumbprint значению сертификата
  */
-async function currentCadesCert(thumbprint, fromContainer = true) {
+CertificatesApi.currentCadesCert = async function currentCadesCert(thumbprint) {
   try {
     if (!thumbprint) {
       throw new Error('Не указано thumbprint значение сертификата');
@@ -132,10 +121,7 @@ async function currentCadesCert(thumbprint, fromContainer = true) {
     }
     const oStore = await cadescomMethods.oStore();
 
-    if (fromContainer)
-      await oStore.Open(CADESCOM_CONTAINER_STORE);
-    else
-      await oStore.Open(CAPICOM_CURRENT_USER_STORE, CAPICOM_MY_STORE, CAPICOM_STORE_OPEN_MAXIMUM_ALLOWED);
+    await oStore.Open(CAPICOM_CURRENT_USER_STORE, CAPICOM_MY_STORE, CAPICOM_STORE_OPEN_MAXIMUM_ALLOWED);
 
     const certificates = await oStore.Certificates;
     const count = await certificates.Count;
@@ -151,20 +137,19 @@ async function currentCadesCert(thumbprint, fromContainer = true) {
   } catch (error) {
     throw new Error(error.message);
   }
-}
+};
 
 /**
  * @async
- * @function getCert
+ * @method getCert
  * @param {String} thumbprint значение сертификата
- * @param {Boolean} fromContainer флаг, определяющий источник сертификата. По умолчанию - с носителя
  * @throws {Error}
  * @description
  * Получает сертификат по thumbprint значению сертификата.
  * В отличие от currentCadesCert использует для поиска коллбек функцию getCertsList
  * С помощью этой функции в сертификате доступны методы из сertificateAdjuster
  */
-async function getCert(thumbprint, fromContainer = true) {
+CertificatesApi.getCert = async function getCert(thumbprint) {
   try {
     if (!thumbprint) {
       throw new Error('Не указано thumbprint значение сертификата');
@@ -172,7 +157,7 @@ async function getCert(thumbprint, fromContainer = true) {
       throw new Error('Не валидное значение thumbprint сертификата');
     }
 
-    const certList = await getCertsList(fromContainer);
+    const certList = await this.getCertsList();
 
     for (let index = 0; index < certList.length; index++) {
       if (thumbprint === certList[index].thumbprint) {
@@ -184,19 +169,18 @@ async function getCert(thumbprint, fromContainer = true) {
   } catch (error) {
     throw new Error(error.message);
   }
-}
+};
 
 /**
  * @async
- * @function signBase64
+ * @method signBase64
  * @param {String} thumbprint значение сертификата
  * @param {String} base64 строка в формате base64
  * @param {Boolean} type тип подписи true=откреплённая false=прикреплённая
- * @param {Boolean} fromContainer флаг, определяющий источник сертификата. По умолчанию - с носителя
  * @throws {Error}
  * @description подпись строки в формате base64
  */
-async function signBase64(thumbprint, base64, type = true, fromContainer = true) {
+CertificatesApi.signBase64 = async function signBase64(thumbprint, base64, type = true) {
   try {
     if (!thumbprint) {
       throw new Error('Не указано thumbprint значение сертификата');
@@ -207,7 +191,7 @@ async function signBase64(thumbprint, base64, type = true, fromContainer = true)
     const oAttrs = await cadescomMethods.oAtts();
     const oSignedData = await cadescomMethods.oSignedData();
     const oSigner = await cadescomMethods.oSigner();
-    const currentCert = await currentCadesCert(thumbprint, fromContainer);
+    const currentCert = await this.currentCadesCert(thumbprint);
     const authenticatedAttributes2 = await oSigner.AuthenticatedAttributes2;
 
     await oAttrs.propset_Name(CAPICOM_AUTHENTICATED_ATTRIBUTE_SIGNING_TIME);
@@ -222,21 +206,19 @@ async function signBase64(thumbprint, base64, type = true, fromContainer = true)
   } catch (error) {
     throw new Error(error.message);
   }
-}
+};
 
 /**
  * @async
- * @function signXml
+ * @method signXml
  * @param {String} thumbprint значение сертификата
  * @param {String} xml строка в формате XML
  * @param {Number} CADESCOM_XML_SIGNATURE_TYPE тип подписи 0=Вложенная 1=Оборачивающая 2=по шаблону @default 0
- * @param {Boolean} fromContainer флаг, определяющий источник сертификата. По умолчанию - с носителя
- * @throws {Error}
  * @description подписание XML документа
  */
-async function signXml(thumbprint, xml, cadescomXmlSignatureType = CADESCOM_XML_SIGNATURE_TYPE_ENVELOPED, fromContainer = true) {
+CertificatesApi.signXml = async function signXml(thumbprint, xml, cadescomXmlSignatureType = CADESCOM_XML_SIGNATURE_TYPE_ENVELOPED) {
   try {
-    const currentCert = await currentCadesCert(thumbprint, fromContainer);
+    const currentCert = await this.currentCadesCert(thumbprint);
     const publicKey = await currentCert.PublicKey();
     const algorithm = await publicKey.Algorithm;
     const value = await algorithm.Value;
@@ -256,17 +238,10 @@ async function signXml(thumbprint, xml, cadescomXmlSignatureType = CADESCOM_XML_
   } catch (error) {
     throw new Error(error);
   }
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// NOTE Exports
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-module.exports = {
-  about,
-  getCertsList,
-  currentCadesCert,
-  getCert,
-  signXml,
-  signBase64,
 };
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// NOTE Exports
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+module.exports = CertificatesApi;
