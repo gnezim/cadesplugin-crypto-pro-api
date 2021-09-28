@@ -1,4 +1,4 @@
-# cadesplugin-cryptopro-api
+# cadesplugin-crypto-api
 
 Библиотека предоставляет API для работы c cadesplugin и Крипто Про
 
