@@ -12,7 +12,7 @@ npm i cadesplugin-crypto-api
 
 ### about()
 
-Выводит информацию о верисии плагина и так далее
+Выводит информацию о версии плагина и так далее
 
 ### getCertsList(fromContainer=true)
 
