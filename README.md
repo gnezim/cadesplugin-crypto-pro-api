@@ -6,7 +6,7 @@
 
 ## Install
 
-npm i cadesplugin-crypto-pro-api
+npm i cadesplugin-crypto-api
 
 ## API
 
